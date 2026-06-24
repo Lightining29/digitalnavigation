@@ -12,9 +12,12 @@ if (config.smtp.user) {
       user: config.smtp.user,
       pass: config.smtp.pass,
     },
+    connectionTimeout: 5000,  // fail after 5s, not 60s
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   });
 } else {
-  console.warn('[email] SMTP_USER is not set — emails will NOT be sent.');
+  console.warn('[email] SMTP_USER is not set — emails will be skipped (OTP logged to console).');
 }
 
 async function send(to, subject, html) {

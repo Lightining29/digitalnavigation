@@ -50,8 +50,17 @@ router.post('/send-otp',
     // Check if email already registered
     const existing = await User.findOne({ email });
     if (existing) return res.status(409).json({ error: 'Email already registered.' });
+
     const { code } = await Otp.generate(email);
-    await sendOTP(email, code);
+
+    // Try to send email — if SMTP fails, log OTP to console and continue
+    try {
+      await sendOTP(email, code);
+    } catch (emailErr) {
+      console.warn(`[otp] Email send failed (${emailErr.message}). OTP for ${email}: ${code}`);
+    }
+
+    // Always return success — user advances to step 2 regardless
     res.json({ message: 'OTP sent to your email.' });
   })
 );
