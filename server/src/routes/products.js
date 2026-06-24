@@ -3,13 +3,16 @@ import { body } from 'express-validator';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import Product from '../models/Product.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { uniqueSlug } from '../utils/slugify.js';
 
-const uploadDir = path.resolve('uploads/products');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const uploadDir = path.resolve(__dirname, '../../uploads/products');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({

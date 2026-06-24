@@ -38,7 +38,7 @@ router.post(
     const { caption, category, order } = req.body;
     const photo = await GalleryPhoto.create({
       filename: req.file.filename,
-      url: `/uploads/${req.file.filename}`,
+      url: `/uploads/gallery/${req.file.filename}`,
       caption: caption || '',
       category: category || 'General',
       order: Number(order) || 0,

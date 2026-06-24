@@ -2,9 +2,12 @@ import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
-import config from '../config.js';
+import { fileURLToPath } from 'url';
 
-const uploadDir = path.resolve(config.uploadDir);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Always resolve to server/uploads/gallery regardless of CWD
+const uploadDir = path.resolve(__dirname, '../../uploads/gallery');
 
 // Ensure the uploads directory exists
 if (!fs.existsSync(uploadDir)) {

@@ -54,18 +54,20 @@ export function createApp() {
   app.use('/api/gallery', galleryRoutes);
   app.use('/api/applications', applicationRoutes);
 
-  // Serve uploaded gallery images
-  const uploadDir = path.resolve(config.uploadDir);
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-  app.use('/uploads', express.static(uploadDir));
+  // ── Upload directories (always relative to THIS file so CWD doesn't matter) ──
+  const UPLOADS_ROOT = path.resolve(__dirname, '../uploads');
 
-  const resumeDir = path.resolve('uploads/resumes');
-  if (!fs.existsSync(resumeDir)) fs.mkdirSync(resumeDir, { recursive: true });
-  app.use('/uploads/resumes', express.static(resumeDir));
+  const uploadDir    = path.join(UPLOADS_ROOT);
+  const resumeDir    = path.join(UPLOADS_ROOT, 'resumes');
+  const productsDir  = path.join(UPLOADS_ROOT, 'products');
+  const galleryDir   = path.join(UPLOADS_ROOT, 'gallery');
 
-  const productsDir = path.resolve('uploads/products');
-  if (!fs.existsSync(productsDir)) fs.mkdirSync(productsDir, { recursive: true });
-  app.use('/uploads/products', express.static(productsDir));
+  for (const dir of [uploadDir, resumeDir, productsDir, galleryDir]) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  }
+
+  console.log(`[uploads] serving from: ${UPLOADS_ROOT}`);
+  app.use('/uploads', express.static(UPLOADS_ROOT));
 
   // 404 for unknown /api/* routes (before SPA fallback)
   app.use('/api/*', notFound);
