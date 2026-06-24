@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import LeadForm from '../components/LeadForm';
 import api from '../api/client';
 
+const PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='44%25' font-size='64' text-anchor='middle' dominant-baseline='middle'%3E📦%3C/text%3E%3Ctext x='50%25' y='70%25' font-size='16' fill='%2394a3b8' text-anchor='middle' dominant-baseline='middle'%3ENo image uploaded yet%3C/text%3E%3C/svg%3E`;
+
 export default function ProductDetail() {
   const { slug } = useParams();
   const [product, setProduct] = useState(null);
@@ -31,7 +33,12 @@ export default function ProductDetail() {
       <section style={{ padding: 'var(--space-6) 0 var(--space-4)' }}>
         <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', alignItems: 'start' }}>
           <div className="neu-raised" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', aspectRatio: '4/3' }}>
-            <img src={product.images?.[0] || '/uploads/placeholder-trex-1.svg'} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img
+              src={product.images?.[0] || PLACEHOLDER}
+              alt={product.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = PLACEHOLDER; }}
+            />
           </div>
           <div>
             <span className="chip chip-accent">{product.category}</span>
