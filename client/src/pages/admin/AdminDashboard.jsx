@@ -237,7 +237,17 @@ function ProductsTab({ toast }) {
     const payload = {
       ...form,
       features: form.features.split('\n').map(s => s.trim()).filter(Boolean),
-      specs: form.specs.split('\n').map(line => { const [label, ...rest] = line.split(':'); return { label: label.trim(), value: rest.join(':').trim() }; }).filter(s => s.label),
+      specs: form.specs
+        .split('\n')
+        .map(line => {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx === -1) return null;
+          const label = line.slice(0, colonIdx).trim();
+          const value = line.slice(colonIdx + 1).trim();
+          if (!label || !value) return null;
+          return { label, value };
+        })
+        .filter(Boolean),
       images: form.images,
     };
     try {

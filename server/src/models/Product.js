@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const specSchema = new mongoose.Schema(
   {
     label: { type: String, required: true, trim: true },
-    value: { type: String, required: true, trim: true },
+    value: { type: String, default: '', trim: true },
   },
   { _id: false }
 );
