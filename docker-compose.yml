@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - server/.env
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  uploads:
