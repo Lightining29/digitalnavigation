@@ -58,18 +58,37 @@ export function createApp() {
   const uploadDir = path.resolve(config.uploadDir);
   if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
   app.use('/uploads', express.static(uploadDir));
-  app.use('/uploads/resumes', express.static(path.resolve('uploads/resumes')));
 
-  // Serve the built React client in production
-  const clientDist = path.resolve(__dirname, '../../client/dist');
-  if (fs.existsSync(clientDist)) {
+  const resumeDir = path.resolve('uploads/resumes');
+  if (!fs.existsSync(resumeDir)) fs.mkdirSync(resumeDir, { recursive: true });
+  app.use('/uploads/resumes', express.static(resumeDir));
+
+  // 404 for unknown /api/* routes (before SPA fallback)
+  app.use('/api/*', notFound);
+
+  // Serve the built React client in production (SPA fallback)
+  // Try multiple possible paths (local dev vs Render deployment)
+  const possibleDistPaths = [
+    path.resolve(__dirname, '../../client/dist'),   // running from server/src/
+    path.resolve('client/dist'),                     // running from project root
+    path.resolve(__dirname, '../../../client/dist'), // deep nesting fallback
+  ];
+  const clientDist = possibleDistPaths.find(fs.existsSync);
+
+  if (clientDist) {
+    console.log(`[static] Serving React client from: ${clientDist}`);
     app.use(express.static(clientDist));
-    // SPA fallback — client-side routing handles the rest
+    // SPA fallback — send index.html for all non-API routes
     app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  } else {
+    console.warn('[static] client/dist not found — React frontend will NOT be served.');
+    console.warn('[static] Searched:', possibleDistPaths);
+    // Fallback message so "Cannot GET /" shows something useful
+    app.get('/', (_req, res) => res.status(200).send(
+      '<h2>API is running ✅</h2><p>Frontend build not found. Run <code>npm run build</code> first.</p>'
+    ));
   }
 
-  // 404 + error handling (must be last)
-  app.use('/api/*', notFound);
   app.use(errorHandler);
 
   return app;

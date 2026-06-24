@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: digital-navigation
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: .
+    buildCommand: npm install --prefix server && npm install --prefix client && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
