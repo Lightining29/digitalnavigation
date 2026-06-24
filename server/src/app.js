@@ -15,6 +15,7 @@ import jobRoutes from './routes/jobs.js';
 import leadRoutes from './routes/leads.js';
 import galleryRoutes from './routes/gallery.js';
 import applicationRoutes from './routes/applications.js';
+import imageRoutes from './routes/images.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/leads', leadRoutes);
   app.use('/api/gallery', galleryRoutes);
   app.use('/api/applications', applicationRoutes);
+  app.use('/api/images', imageRoutes);
 
   // ── Upload directories (always relative to THIS file so CWD doesn't matter) ──
   const UPLOADS_ROOT = path.resolve(__dirname, '../uploads');

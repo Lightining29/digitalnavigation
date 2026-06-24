@@ -1,14 +1,49 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
-import fs from 'fs';
-import path from 'path';
+import { body, validationResult } from 'express-validator';
+import multer from 'multer';
 import GalleryPhoto from '../models/GalleryPhoto.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
-import { uploadSingle } from '../middleware/upload.js';
+import { createGridFsImageStorage, deleteImageByUrl } from '../services/imageStore.js';
 
 const router = Router();
+
+const upload = multer({
+  storage: createGridFsImageStorage({ usedBy: 'gallery' }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
+function uploadSingle(fieldName) {
+  return (req, res, next) => {
+    upload.single(fieldName)(req, res, (err) => {
+      if (!err) {
+        next();
+        return;
+      }
+
+      const status = err.status || (err instanceof multer.MulterError ? 400 : 500);
+      res.status(status).json({ error: err.message });
+    });
+  };
+}
+
+function validateUploadedPhoto(req, res, next) {
+  const errors = validationResult(req);
+  if (errors.isEmpty()) return next();
+
+  const first = errors.array()[0];
+  const sendValidationError = () => res.status(422).json({ error: first.msg });
+
+  if (!req.file?.id) {
+    sendValidationError();
+    return;
+  }
+
+  deleteImageByUrl(`/api/images/${req.file.id}`)
+    .catch((err) => console.warn('[gallery] could not clean up rejected upload:', err.message))
+    .finally(sendValidationError);
+}
 
 // PUBLIC — list gallery photos
 router.get(
@@ -32,18 +67,25 @@ router.post(
     body('category').optional().trim(),
     body('order').optional().isNumeric().withMessage('Order must be a number.'),
   ],
-  validate,
+  validateUploadedPhoto,
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Image file is required.' });
     const { caption, category, order } = req.body;
-    const photo = await GalleryPhoto.create({
-      filename: req.file.filename,
-      url: `/uploads/gallery/${req.file.filename}`,
-      caption: caption || '',
-      category: category || 'General',
-      order: Number(order) || 0,
-    });
-    res.status(201).json(photo);
+    const url = `/api/images/${req.file.id}`;
+
+    try {
+      const photo = await GalleryPhoto.create({
+        filename: req.file.filename,
+        url,
+        caption: caption || '',
+        category: category || 'General',
+        order: Number(order) || 0,
+      });
+      res.status(201).json(photo);
+    } catch (err) {
+      await deleteImageByUrl(url);
+      throw err;
+    }
   })
 );
 
@@ -69,7 +111,7 @@ router.put(
   })
 );
 
-// ADMIN — delete (also removes the file from disk)
+// ADMIN — delete (also removes MongoDB-stored image data for new uploads)
 router.delete(
   '/:id',
   requireAuth,
@@ -77,15 +119,10 @@ router.delete(
   asyncHandler(async (req, res) => {
     const photo = await GalleryPhoto.findByIdAndDelete(req.params.id);
     if (!photo) return res.status(404).json({ error: 'Photo not found.' });
-    // best-effort file removal
     try {
-      const filePath = path.resolve(
-        process.env.UPLOAD_DIR || 'uploads',
-        path.basename(photo.filename)
-      );
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (e) {
-      console.warn('[gallery] could not delete file:', e.message);
+      await deleteImageByUrl(photo.url);
+    } catch (err) {
+      console.warn('[gallery] could not delete image from MongoDB:', err.message);
     }
     res.json({ ok: true });
   })

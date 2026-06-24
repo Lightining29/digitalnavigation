@@ -1,36 +1,29 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import Product from '../models/Product.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { uniqueSlug } from '../utils/slugify.js';
+import { createGridFsImageStorage, deleteImageByUrl } from '../services/imageStore.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const uploadDir = path.resolve(__dirname, '../../uploads/products');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `product-${Date.now()}${ext}`);
-  },
-});
 const upload = multer({
-  storage,
+  storage: createGridFsImageStorage({ usedBy: 'product' }),
   limits: { fileSize: 8 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files allowed.'));
-  },
 });
 
+function uploadProductImage(req, res, next) {
+  upload.single('image')(req, res, (err) => {
+    if (!err) {
+      next();
+      return;
+    }
+
+    const status = err.status || (err instanceof multer.MulterError ? 400 : 500);
+    res.status(status).json({ error: err.message });
+  });
+}
 
 const router = Router();
 
@@ -72,11 +65,15 @@ router.post(
   '/upload-image',
   requireAuth,
   requireAdmin,
-  upload.single('image'),
+  uploadProductImage,
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
-    const url = `/uploads/products/${req.file.filename}`;
-    res.json({ url });
+    res.status(201).json({
+      id: req.file.id.toString(),
+      url: `/api/images/${req.file.id}`,
+      size: req.file.size,
+      contentType: req.file.mimetype,
+    });
   })
 );
 
@@ -115,6 +112,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { name, tagline, description, category, featured, features, specs, images, order, slug } =
       req.body;
+    const nextImages = Array.isArray(images) ? images : [];
     const update = {
       tagline,
       description,
@@ -122,16 +120,20 @@ router.put(
       featured: !!featured,
       features: Array.isArray(features) ? features : [],
       specs: Array.isArray(specs) ? specs : [],
-      images: Array.isArray(images) ? images : [],
+      images: nextImages,
       order: Number(order) || 0,
     };
     if (name) update.name = name;
     if (slug) update.slug = await uniqueSlug(Product, slug, req.params.id);
+    const existingProduct = await Product.findById(req.params.id).select('images').lean();
+    if (!existingProduct) return res.status(404).json({ error: 'Product not found.' });
     const product = await Product.findByIdAndUpdate(req.params.id, update, {
       new: true,
       runValidators: true,
     });
-    if (!product) return res.status(404).json({ error: 'Product not found.' });
+    const keptImages = new Set(nextImages);
+    const removedImages = (existingProduct.images || []).filter((url) => !keptImages.has(url));
+    await Promise.allSettled(removedImages.map((url) => deleteImageByUrl(url)));
     res.json(product);
   })
 );
@@ -144,6 +146,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ error: 'Product not found.' });
+    await Promise.allSettled((product.images || []).map((url) => deleteImageByUrl(url)));
     res.json({ ok: true });
   })
 );
