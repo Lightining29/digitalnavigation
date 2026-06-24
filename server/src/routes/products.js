@@ -1,10 +1,33 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import Product from '../models/Product.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { uniqueSlug } from '../utils/slugify.js';
+
+const uploadDir = path.resolve('uploads/products');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `product-${Date.now()}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files allowed.'));
+  },
+});
+
 
 const router = Router();
 
@@ -40,6 +63,19 @@ const productValidation = [
   body('description').trim().notEmpty().withMessage('Description is required.'),
   validate,
 ];
+
+// ADMIN — upload product image
+router.post(
+  '/upload-image',
+  requireAuth,
+  requireAdmin,
+  upload.single('image'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
+    const url = `/uploads/products/${req.file.filename}`;
+    res.json({ url });
+  })
+);
 
 // ADMIN — create
 router.post(

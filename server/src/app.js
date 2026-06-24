@@ -63,6 +63,10 @@ export function createApp() {
   if (!fs.existsSync(resumeDir)) fs.mkdirSync(resumeDir, { recursive: true });
   app.use('/uploads/resumes', express.static(resumeDir));
 
+  const productsDir = path.resolve('uploads/products');
+  if (!fs.existsSync(productsDir)) fs.mkdirSync(productsDir, { recursive: true });
+  app.use('/uploads/products', express.static(productsDir));
+
   // 404 for unknown /api/* routes (before SPA fallback)
   app.use('/api/*', notFound);
 

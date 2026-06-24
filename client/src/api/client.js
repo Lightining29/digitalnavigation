@@ -109,6 +109,9 @@ class ApiClient {
   deleteProduct(id) {
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
+  uploadProductImage(formData) {
+    return this.request('/products/upload-image', { method: 'POST', body: formData });
+  }
 
   // Jobs (public)
   getJobs(params = {}) {
